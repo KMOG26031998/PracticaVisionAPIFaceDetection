@@ -16,7 +16,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.google.android.gms.vision.Frame;
 import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.face.FaceDetector;
@@ -27,11 +26,13 @@ import com.google.api.services.vision.v1.VisionRequestInitializer;
 import com.google.api.services.vision.v1.model.AnnotateImageRequest;
 import com.google.api.services.vision.v1.model.BatchAnnotateImagesRequest;
 import com.google.api.services.vision.v1.model.BatchAnnotateImagesResponse;
+import com.google.api.services.vision.v1.model.EntityAnnotation;
 import com.google.api.services.vision.v1.model.FaceAnnotation;
 import com.google.api.services.vision.v1.model.Feature;
 import com.google.api.services.vision.v1.model.Image;
 
-import java.io.ByteArrayOutputStream;
+import org.apache.commons.io.output.ByteArrayOutputStream;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -48,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
         Vision.Builder visionBuilder = new Vision.Builder(new NetHttpTransport(),
                 new AndroidJsonFactory(),  null);
         visionBuilder.setVisionRequestInitializer(new
-                VisionRequestInitializer("AIzaSyB7UDRpBIatJZnwgCnMvCvi3KxpDO30RIg"));
+                VisionRequestInitializer("AIzaSyB5MkIB5lNnQH1kC1tZ3ATeEsv7z66moKs"));
         vision = visionBuilder.build();
         btn = findViewById(R.id.btnprocesar);
         myImageView = findViewById(R.id.imageView);
@@ -74,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
                         FaceDetector.Builder(getApplicationContext()).setTrackingEnabled(false)
                         .build();
                 if(!faceDetector.isOperational()) {
-                    new AlertDialog.Builder(v.getContext()).setMessage("No se detecto ningun rostro!").show();
+                    new AlertDialog.Builder(v.getContext()).setMessage("!No se encontro ningun rostro!").show();
                     return;
                 }
                 Frame frame = new Frame.Builder().setBitmap(myBitmap).build();
@@ -88,21 +89,27 @@ public class MainActivity extends AppCompatActivity {
                     tempCanvas.drawRoundRect(new RectF(x1, y1, x2, y2), 2, 2, myRectPaint);
                 }
                 myImageView.setImageDrawable(new BitmapDrawable(getResources(), tempBitmap));
+
                 AsyncTask.execute(new Runnable() {
                     @Override
                     public void run() {
                         BatchAnnotateImagesRequest batchRequest = setBatchRequest("FACE_DETECTION",
                                 getImageToProcess());
                         try {
+
                             Vision.Images.Annotate  annotateRequest = vision.images().annotate(batchRequest);
                             annotateRequest.setDisableGZipContent(true);
                             BatchAnnotateImagesResponse response  = annotateRequest.execute();
+
+
                             List<FaceAnnotation> faces = response.getResponses().get(0).getFaceAnnotations();
+
                             int numberOfFaces = faces.size();
                             String likelihoods = "";
                             for(int i=0; i<numberOfFaces; i++)
                                 likelihoods += "\n Rostro " + i + "  "  +
-                                       faces.get(i).getJoyLikelihood();
+                                        faces.get(i).getJoyLikelihood();
+
                             final String message =   "La imagen tiene " + numberOfFaces + " rostros " + likelihoods;
 
                             runOnUiThread(new Runnable() {
@@ -117,17 +124,16 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                 });
-
             }
         });
-    }
 
-  public Image getImageToProcess(){
+    }
+    public Image getImageToProcess(){
         ImageView imagen = (ImageView)findViewById(R.id.imageView);
         BitmapDrawable drawable = (BitmapDrawable) imagen.getDrawable();
         Bitmap bitmap = drawable.getBitmap();
         bitmap = scaleBitmapDown(bitmap, 1200);
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        org.apache.commons.io.output.ByteArrayOutputStream stream = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream);
         byte[] imageInByte = stream.toByteArray();
         Image inputImage = new Image();
@@ -137,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
 
     public BatchAnnotateImagesRequest setBatchRequest(String TipoSolic, Image inputImage){
         Feature desiredFeature = new Feature();
-        desiredFeature.setType("FACE_DETECTION");
+        desiredFeature.setType(TipoSolic);
         AnnotateImageRequest request = new AnnotateImageRequest();
         request.setImage(inputImage);
         request.setFeatures(Arrays.asList(desiredFeature));
@@ -145,37 +151,7 @@ public class MainActivity extends AppCompatActivity {
         batchRequest.setRequests(Arrays.asList(request));
         return batchRequest;
     }
-  /*  public void ProcesarTexto(View View){
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-               BatchAnnotateImagesRequest batchRequest = setBatchRequest("FACE_DETECTION",
-                        getImageToProcess());
-                try {
-                    Vision.Images.Annotate  annotateRequest = vision.images().annotate(batchRequest);
-                    annotateRequest.setDisableGZipContent(true);
-                    BatchAnnotateImagesResponse response  = annotateRequest.execute();
-                    List<FaceAnnotation> faces = response.getResponses().get(0).getFaceAnnotations()
-                            ;int numberOfFaces = faces.size();
-                    String likelihoods = "";
-                    for(int i=0; i<numberOfFaces; i++)
-                        likelihoods += "\n Rostro " + i + "  "  +
-                                faces.get(i).getJoyLikelihood();
-                    final String message =   "Esta imagen tiene " + numberOfFaces + " rostros " + likelihoods;
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            TextView imageDetail = (TextView)findViewById(R.id.textView);
-                            imageDetail.setText(message.toString());
-                        }
-                    });
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-    }*/
-  private Bitmap scaleBitmapDown(Bitmap bitmap, int maxDimension) {
+    private Bitmap scaleBitmapDown(Bitmap bitmap, int maxDimension) {
         int originalWidth = bitmap.getWidth();
         int originalHeight = bitmap.getHeight();
         int resizedWidth = maxDimension;
@@ -192,5 +168,4 @@ public class MainActivity extends AppCompatActivity {
         }
         return Bitmap.createScaledBitmap(bitmap, resizedWidth, resizedHeight, false);
     }
-
 }
